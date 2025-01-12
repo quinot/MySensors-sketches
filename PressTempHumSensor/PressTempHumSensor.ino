@@ -52,7 +52,17 @@
 
 
 // VARIABLES YOU CAN CHANGE
-const float ALTITUDE = 65;                        // Change this value to your location's altitude (in m). Use your smartphone GPS to get an accurate value, or use an online map.
+#undef CONFIG_ALTITUDE
+// Define to get altitude as a configuration parameter from the controller (baro sensor (child 3), V_VAR1)
+
+#ifdef CONFIG_ALTITUDE
+bool altitudeSet = false;
+#define ALTITUDE_TIMEOUT 10000
+#else
+const
+#endif
+float altitude = 65;                        // Change this value to your location's altitude (in m). Use your smartphone GPS to get an accurate value, or use an online map.
+
 unsigned long measurementInterval = 60000;  // Sleep time between reads (in ms). Keep this value at 60000 if you have enabled the forecast feature, as the forecast algorithm needs a sample every minute.
 
 #define OMIT_IF_UNCHANGED false
@@ -161,6 +171,20 @@ void presentation()  {
   present(AHT20_HUM_CHILD_ID, S_HUM);
   present(BMP280_TEMP_CHILD_ID, S_TEMP);
   present(BMP280_BARO_CHILD_ID, S_BARO);
+
+#ifdef CONFIG_ALTITUDE
+  Serial.println(F("Requesting altitude data"));
+  altitudeSet = false;
+  request(BMP280_BARO_CHILD_ID, V_VAR1);
+  for (unsigned long altitudeRequested = millis();; !altitudeSet && millis() < altitudeRequested + ALTITUDE_TIMEOUT)
+    delay(10);
+  if (!altitudeSet)
+    Serial.println(F("Request timed out, using default."));
+#else
+  Serial.print(F("Fixed altitude: "));
+  Serial.print(altitude);
+  Serial.println(F(" m"));
+#endif
 }
 
 #define REPORT(sensor, quantity, unit) do { \
@@ -193,7 +217,7 @@ void loop() {
 
     float currentBMP280Temperature = bmp.readTemperature();
     float pressure_local = bmp.readPressure();
-    float currentBMP280Pressure = bmp.seaLevelForAltitude(ALTITUDE, pressure_local);
+    float currentBMP280Pressure = bmp.seaLevelForAltitude(altitude, pressure_local);
 
     REPORT(BMP280, Temperature, "°C");
     REPORT(BMP280, Pressure, "hPa (sea level)");
@@ -379,5 +403,16 @@ int sample(float pressure) {
   //Serial.println(weather[forecast]);
 
   return forecast;
+}
+#endif
+
+#ifdef CONFIG_ALTITUDE
+void receive(const MyMessage &message) {
+  if (message.sensor == BMP280_BARO_CHILD_ID && message.type == V_VAR1) {
+    altitude = message.getFloat();
+    altitudeSet = true;
+    Serial.print("New altitude: ");
+    Serial.println(altitude);
+  }
 }
 #endif

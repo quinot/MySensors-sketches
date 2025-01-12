@@ -127,7 +127,7 @@ void setup() {
   // Initialize AHT
 
   if (!aht.begin()) {
-    Serial.println(F("Could not find a valid BMP280 sensor, check wiring or "
+    Serial.println(F("Could not find a valid AHTx0 sensor, check wiring or "
                       "try a different address!"));
     while (1) delay(10);
   }
@@ -147,7 +147,8 @@ void setup() {
                   Adafruit_BMP280::SAMPLING_X4,      /* Temp. oversampling */
                   Adafruit_BMP280::SAMPLING_X16,     /* Pressure oversampling */
                   Adafruit_BMP280::FILTER_X16,       /* Filtering. */
-                  Adafruit_BMP280::STANDBY_MS_1000); /* Standby time. */  
+                  Adafruit_BMP280::STANDBY_MS_1000); /* Standby time. */
+
 }
 
 
@@ -185,8 +186,7 @@ void loop() {
   if (currentMeasMillis - previousMeasMillis >= measurementInterval) {
     previousMeasMillis = currentMeasMillis; // store the current time as the previous measurement start time.
   
-    Serial.println("");
-    Serial.println("BMP280 - Requesting new data from sensor module.");
+    Serial.println(F("\nMeasuring..."));
 
     bmp.takeForcedMeasurement();
     // Blocks till measurement is ready
@@ -233,13 +233,19 @@ void loop() {
   #endif
 
   sendBatteryLevel(batteryPcnt);
+  unsigned long timeInCycle = millis() - previousMeasMillis;
+  Serial.print(F("Time in measurement cycle: "));
+  Serial.print(timeInCycle);
+  Serial.println(F(" ms"));
 
-  unsigned long sleeptime = previousMeasMillis + measurementInterval - millis();
+  unsigned long sleeptime = measurementInterval - timeInCycle;
   Serial.print(F("ZzzzZZZZzzzzZZZZzzzz for"));
   Serial.print(sleeptime);
   Serial.println(F(" ms"));
+
   sleep(sleeptime); // Note: millis() stops counting during sleep
-  Serial.println("Waking up");
+
+  Serial.println(F("Waking up"));
 #endif
 
 } // end of main loop.
